@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+env/
+venv/
+ENV/
+
+# Local databases (optional, or keep clean)
+*.db-journal
+
+# Flet build outputs
+build/
+dist/
+*.apk
+*.aab
+
+# OS files
+.DS_Store
+Thumbs.db

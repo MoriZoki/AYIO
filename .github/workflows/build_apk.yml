@@ -37,10 +37,12 @@ jobs:
 
     - name: Build Android APK
       run: |
-        flet build apk --project-name ayio --product-name "AYIO" --org com.ayio.app
+        flet build apk --project ayio --product "AYIO" --org com.ayio.app --yes
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: AYIO-release-apk
-        path: build/apk/*.apk
+        name: AYIO-Android-APK
+        path: |
+          build/apk/*.apk
+          build/**/*.apk
