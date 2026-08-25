@@ -485,7 +485,7 @@ class ToolsView:
     def build_debt_card(self, debt: dict):
         is_rec = debt["type"] == "receivable"
         is_settled = debt.get("is_settled") == 1
-        card_color = ft.Colors.CYAN_700 if is_rec else ft.Colors.ROSE_700
+        card_color = ft.Colors.CYAN_700 if is_rec else ft.Colors.RED_700
         status_text = "تسویه شده" if is_settled else ("در انتظار وصول" if is_rec else "پرداخت نشده")
         
         debt_controls = [
