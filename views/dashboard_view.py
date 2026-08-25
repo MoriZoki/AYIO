@@ -10,10 +10,11 @@ from utils.persian_date import (
 from utils.icons_helper import get_icon
 
 class DashboardView:
-    def __init__(self, page: ft.Page, on_navigate_add, on_navigate_accounts, on_refresh_all):
+    def __init__(self, page: ft.Page, on_navigate_add, on_navigate_accounts, on_navigate_tools, on_refresh_all):
         self.page = page
         self.on_navigate_add = on_navigate_add
         self.on_navigate_accounts = on_navigate_accounts
+        self.on_navigate_tools = on_navigate_tools
         self.on_refresh_all = on_refresh_all
         
         current_j = get_current_jalali()
@@ -84,6 +85,7 @@ class DashboardView:
             ),
             border_radius=16,
             padding=ft.Padding.symmetric(horizontal=16, vertical=14),
+            border=ft.Border.all(1, ft.Colors.with_opacity(0.12, ft.Colors.WHITE)),
             shadow=ft.BoxShadow(
                 spread_radius=1,
                 blur_radius=10,
@@ -103,12 +105,12 @@ class DashboardView:
                                 border_radius=10,
                                 padding=6,
                             ),
-                            ft.Text(title, size=13, color=text_color, weight=ft.FontWeight.W_600, rtl=True),
+                            ft.Text(title, size=12, color=text_color, weight=ft.FontWeight.W_600, rtl=True),
                         ],
                     ),
                     ft.Text(
                         format_price(amount, persian_digits=True),
-                        size=17,
+                        size=16,
                         weight=ft.FontWeight.BOLD,
                         color=ft.Colors.WHITE if self.page.theme_mode == ft.ThemeMode.DARK else ft.Colors.BLACK_87,
                         rtl=True,
@@ -119,7 +121,7 @@ class DashboardView:
         )
 
     def build_mini_account_card(self, acc: dict):
-        acc_color = acc.get("color") or "#3B82F6"
+        acc_color = acc.get("color") or "#1E3A8A"
         acc_icon = get_icon(acc.get("icon") or "credit_card_rounded")
         balance = acc.get("current_balance") or 0.0
         card_num = acc.get("card_number")
@@ -133,10 +135,11 @@ class DashboardView:
                 end=ft.Alignment.BOTTOM_LEFT,
                 colors=[acc_color, acc_color + "DD"],
             ),
+            border=ft.Border.all(1, ft.Colors.with_opacity(0.2, ft.Colors.WHITE)),
             shadow=ft.BoxShadow(
                 spread_radius=1,
                 blur_radius=8,
-                color=ft.Colors.with_opacity(0.15, ft.Colors.BLACK),
+                color=ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
                 offset=ft.Offset(0, 3),
             ),
             on_click=lambda _: self.on_navigate_accounts(),
@@ -179,8 +182,8 @@ class DashboardView:
     def build_transaction_tile(self, item: dict):
         is_income = item["type"] == "income"
         amount_sign = "+" if is_income else "-"
-        amount_color = ft.Colors.GREEN_400 if is_income else ft.Colors.RED_400
-        cat_color = item.get("category_color") or ("#10B981" if is_income else "#EF4444")
+        amount_color = ft.Colors.CYAN_300 if is_income else ft.Colors.RED_400
+        cat_color = item.get("category_color") or ("#0284C7" if is_income else "#EF4444")
         cat_icon = get_icon(item.get("category_icon"))
         account_name = item.get("account_name")
         
@@ -195,14 +198,13 @@ class DashboardView:
         return ft.Container(
             margin=ft.Margin.only(bottom=8),
             padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-            bgcolor=ft.Colors.with_opacity(0.04, ft.Colors.PRIMARY) if self.page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
+            bgcolor=ft.Colors.with_opacity(0.1, ft.Colors.SURFACE_TINT) if self.page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
             border_radius=14,
-            border=ft.Border.all(1, ft.Colors.with_opacity(0.08, ft.Colors.OUTLINE)),
+            border=ft.Border.all(1, ft.Colors.with_opacity(0.12, ft.Colors.OUTLINE)),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    # Right side in RTL (Category Icon & Title)
                     ft.Row(
                         spacing=12,
                         controls=[
@@ -227,7 +229,7 @@ class DashboardView:
                                     ft.Text(
                                         subtitle_text,
                                         size=11,
-                                        color=ft.Colors.GREY_500,
+                                        color=ft.Colors.GREY_400,
                                         rtl=True,
                                         max_lines=1,
                                         overflow=ft.TextOverflow.ELLIPSIS,
@@ -236,7 +238,6 @@ class DashboardView:
                             ),
                         ],
                     ),
-                    # Left side (Amount & Action)
                     ft.Row(
                         spacing=6,
                         controls=[
@@ -274,7 +275,7 @@ class DashboardView:
         month_name = get_month_name(self.selected_month)
         year_persian = to_persian_digits(str(self.selected_year))
         
-        # 1. Total Net Worth Banner (مجموع کل دارایی‌ها و موجودی حساب‌ها)
+        # 1. Total Net Worth Glassmorphic Banner
         net_worth_banner = ft.Container(
             padding=ft.Padding.symmetric(horizontal=18, vertical=16),
             border_radius=18,
@@ -283,10 +284,11 @@ class DashboardView:
                 end=ft.Alignment.BOTTOM_RIGHT,
                 colors=["#0F172A", "#1E293B"] if self.page.theme_mode == ft.ThemeMode.DARK else ["#1E3A8A", "#2563EB"],
             ),
+            border=ft.Border.all(1, ft.Colors.with_opacity(0.18, ft.Colors.WHITE)),
             shadow=ft.BoxShadow(
                 spread_radius=1,
                 blur_radius=12,
-                color=ft.Colors.with_opacity(0.2, ft.Colors.PRIMARY),
+                color=ft.Colors.with_opacity(0.25, ft.Colors.PRIMARY),
                 offset=ft.Offset(0, 5),
             ),
             content=ft.Row(
@@ -342,8 +344,9 @@ class DashboardView:
         month_selector = ft.Container(
             padding=ft.Padding.symmetric(horizontal=12, vertical=8),
             margin=ft.Margin.only(bottom=12),
-            bgcolor=ft.Colors.with_opacity(0.06, ft.Colors.PRIMARY),
+            bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.PRIMARY),
             border_radius=16,
+            border=ft.Border.all(1, ft.Colors.with_opacity(0.12, ft.Colors.OUTLINE)),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -385,16 +388,16 @@ class DashboardView:
             title="ورودی‌های این ماه",
             amount=summary["income"],
             icon=ft.Icons.ARROW_DOWNWARD_ROUNDED,
-            bg_color="#064E3B" if self.page.theme_mode == ft.ThemeMode.DARK else "#D1FAE5",
-            text_color="#10B981" if self.page.theme_mode == ft.ThemeMode.DARK else "#047857",
+            bg_color="#0F766E" if self.page.theme_mode == ft.ThemeMode.DARK else "#CCFBF1",
+            text_color="#2DD4BF" if self.page.theme_mode == ft.ThemeMode.DARK else "#0F766E",
         )
         
         expense_card = self.build_summary_card(
             title="خروجی‌های این ماه",
             amount=summary["expense"],
             icon=ft.Icons.ARROW_UPWARD_ROUNDED,
-            bg_color="#7F1D1D" if self.page.theme_mode == ft.ThemeMode.DARK else "#FEE2E2",
-            text_color="#F87171" if self.page.theme_mode == ft.ThemeMode.DARK else "#B91C1C",
+            bg_color="#881337" if self.page.theme_mode == ft.ThemeMode.DARK else "#FFE4E6",
+            text_color="#FB7185" if self.page.theme_mode == ft.ThemeMode.DARK else "#BE123C",
         )
 
         # Monthly Balance Card
@@ -402,8 +405,8 @@ class DashboardView:
         balance_card = ft.Container(
             padding=ft.Padding.symmetric(horizontal=16, vertical=12),
             border_radius=16,
-            bgcolor=ft.Colors.with_opacity(0.06, ft.Colors.PRIMARY),
-            border=ft.Border.all(1, ft.Colors.with_opacity(0.1, ft.Colors.PRIMARY)),
+            bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.PRIMARY),
+            border=ft.Border.all(1, ft.Colors.with_opacity(0.12, ft.Colors.PRIMARY)),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -413,7 +416,7 @@ class DashboardView:
                         f"{'+' if balance >= 0 else ''}{format_price(balance, persian_digits=True)}",
                         size=15,
                         weight=ft.FontWeight.BOLD,
-                        color=ft.Colors.GREEN_400 if balance >= 0 else ft.Colors.RED_400,
+                        color=ft.Colors.CYAN_300 if balance >= 0 else ft.Colors.RED_400,
                         rtl=True,
                     ),
                 ],
@@ -463,13 +466,37 @@ class DashboardView:
                 controls=transaction_tiles,
             )
 
+        # Quick Tools Bar
+        tools_shortcut_btn = ft.Container(
+            padding=ft.Padding.symmetric(horizontal=14, vertical=10),
+            border_radius=14,
+            bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.PRIMARY),
+            border=ft.Border.all(1, ft.Colors.with_opacity(0.12, ft.Colors.PRIMARY)),
+            on_click=lambda _: self.on_navigate_tools(),
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Row(
+                        spacing=8,
+                        controls=[
+                            ft.Icon(ft.Icons.AUTO_AWESOME_ROUNDED, color=ft.Colors.AMBER_400, size=20),
+                            ft.Text("ابزارهای مالی (اقساط و وام، طلب‌ها و بدهی‌ها)", size=12, weight=ft.FontWeight.BOLD, rtl=True),
+                        ],
+                    ),
+                    ft.Icon(ft.Icons.ARROW_BACK_IOS_NEW_ROUNDED, size=14, color=ft.Colors.GREY_400),
+                ],
+            ),
+        )
+
         # Assembling view
         self.container.content = ft.ListView(
             expand=True,
             padding=ft.Padding.only(left=16, right=16, top=12, bottom=80),
             controls=[
                 net_worth_banner,
-                ft.Container(height=14),
+                ft.Container(height=12),
+                tools_shortcut_btn,
+                ft.Container(height=12),
                 ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
@@ -481,7 +508,7 @@ class DashboardView:
                     ],
                 ),
                 accounts_scroll_row,
-                ft.Container(height=16),
+                ft.Container(height=14),
                 month_selector,
                 ft.Row(
                     spacing=12,
@@ -489,7 +516,7 @@ class DashboardView:
                 ),
                 ft.Container(height=10),
                 balance_card,
-                ft.Container(height=18),
+                ft.Container(height=16),
                 ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[

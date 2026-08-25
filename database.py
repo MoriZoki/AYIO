@@ -21,6 +21,7 @@ DEFAULT_CATEGORIES = [
     {"name": "فروش کالا/خدمات", "type": "income", "icon": "storefront_rounded", "color": "#8B5CF6"},
     {"name": "آزادکاری و پروژه", "type": "income", "icon": "laptop_mac_rounded", "color": "#F59E0B"},
     {"name": "هدیه و کادو", "type": "income", "icon": "redeem_rounded", "color": "#EC4899"},
+    {"name": "طلب وصول شده", "type": "income", "icon": "handshake_rounded", "color": "#0D9488"},
     {"name": "سایر درآمدها", "type": "income", "icon": "add_circle_outline_rounded", "color": "#14B8A6"},
 
     # Expenses (خروجی‌ها / هزینه‌ها)
@@ -33,18 +34,19 @@ DEFAULT_CATEGORIES = [
     {"name": "پوشاک، لباس و مراقبت", "type": "expense", "icon": "checkroom_rounded", "color": "#D946EF"},
     {"name": "آموزش و کتاب", "type": "expense", "icon": "school_rounded", "color": "#3B82F6"},
     {"name": "اقساط و وام", "type": "expense", "icon": "credit_card_rounded", "color": "#64748B"},
+    {"name": "پرداخت بدهی", "type": "expense", "icon": "payments_rounded", "color": "#E11D48"},
     {"name": "تعمیرات و نگهداری", "type": "expense", "icon": "build_rounded", "color": "#78716C"},
     {"name": "سایر هزینه‌ها", "type": "expense", "icon": "more_horiz_rounded", "color": "#94A3B8"}
 ]
 
 DEFAULT_ACCOUNTS = [
-    {"name": "کارت بانکی اصلی", "type": "bank_card", "card_number": "6037", "initial_balance": 0, "color": "#3B82F6", "icon": "credit_card_rounded"},
-    {"name": "کیف پول نقدی", "type": "cash", "card_number": "", "initial_balance": 0, "color": "#10B981", "icon": "account_balance_wallet_rounded"},
-    {"name": "صندوق پس‌انداز", "type": "savings", "card_number": "", "initial_balance": 0, "color": "#F59E0B", "icon": "savings_rounded"}
+    {"name": "کارت بانکی اصلی", "type": "bank_card", "card_number": "6037", "initial_balance": 0, "color": "#1E3A8A", "icon": "credit_card_rounded"},
+    {"name": "کیف پول نقدی", "type": "cash", "card_number": "", "initial_balance": 0, "color": "#0F766E", "icon": "account_balance_wallet_rounded"},
+    {"name": "صندوق پس‌انداز", "type": "savings", "card_number": "", "initial_balance": 0, "color": "#B45309", "icon": "savings_rounded"}
 ]
 
 def init_db():
-    """Initializes the database tables, seeds categories and accounts, and handles migrations."""
+    """Initializes database tables, accounts, loans, debts, and handles migrations."""
     with get_connection() as conn:
         cursor = conn.cursor()
         
@@ -60,7 +62,7 @@ def init_db():
             )
         """)
         
-        # Accounts Table (کارت‌ها، کیف پول و صندوق دارایی‌ها)
+        # Accounts Table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS accounts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,24 +82,48 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 type TEXT NOT NULL,
                 amount REAL NOT NULL,
-                category_id INTEGER NOT NULL,
+                category_id INTEGER,
                 account_id INTEGER,
                 date TEXT NOT NULL,
                 year INTEGER NOT NULL,
                 month INTEGER NOT NULL,
                 description TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE,
+                FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE SET NULL
             )
         """)
-        
-        # Check if account_id column exists in transactions (migration)
-        cursor.execute("PRAGMA table_info(transactions)")
-        cols = [row["name"] for row in cursor.fetchall()]
-        if "account_id" not in cols:
-            cursor.execute("ALTER TABLE transactions ADD COLUMN account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL")
 
+        # Loans & Installments Table (اقساط و وام‌ها)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS loans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                total_amount REAL NOT NULL,
+                monthly_amount REAL NOT NULL,
+                total_installments INTEGER NOT NULL,
+                paid_installments INTEGER DEFAULT 0,
+                due_day INTEGER DEFAULT 1,
+                next_due_date TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Debts Table (طلب‌ها و بدهی‌ها)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS debts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL, -- 'receivable' (طلب از دیگران) or 'payable' (بدهی به دیگران)
+                person_name TEXT NOT NULL,
+                amount REAL NOT NULL,
+                due_date TEXT,
+                is_settled INTEGER DEFAULT 0,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
         # Seed categories if none exist
         cursor.execute("SELECT COUNT(*) FROM categories")
         if cursor.fetchone()[0] == 0:
@@ -120,7 +146,6 @@ def init_db():
 
 # --- Accounts CRUD & Balance calculation ---
 def get_accounts() -> List[Dict[str, Any]]:
-    """Returns all accounts along with their calculated live balance."""
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM accounts ORDER BY id ASC")
@@ -128,14 +153,12 @@ def get_accounts() -> List[Dict[str, Any]]:
         
         for acc in accounts:
             acc_id = acc["id"]
-            # Sum incomes to this account
             cursor.execute("""
                 SELECT COALESCE(SUM(amount), 0) FROM transactions 
                 WHERE account_id = ? AND type = 'income'
             """, (acc_id,))
             inc = cursor.fetchone()[0]
             
-            # Sum expenses from this account
             cursor.execute("""
                 SELECT COALESCE(SUM(amount), 0) FROM transactions 
                 WHERE account_id = ? AND type = 'expense'
@@ -165,17 +188,48 @@ def add_account(name: str, acc_type: str, initial_balance: float, card_number: s
         conn.commit()
         return cursor.lastrowid
 
+def update_account(acc_id: int, name: str, acc_type: str, initial_balance: float, card_number: str, color: str, icon: str) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE accounts 
+            SET name = ?, type = ?, initial_balance = ?, card_number = ?, color = ?, icon = ?
+            WHERE id = ?
+        """, (name, acc_type, initial_balance, card_number.strip(), color, icon, acc_id))
+        conn.commit()
+        return cursor.rowcount > 0
+
 def delete_account(acc_id: int) -> bool:
     with get_connection() as conn:
         cursor = conn.cursor()
+        # Set transactions referencing this account to NULL
+        cursor.execute("UPDATE transactions SET account_id = NULL WHERE account_id = ?", (acc_id,))
         cursor.execute("DELETE FROM accounts WHERE id = ?", (acc_id,))
         conn.commit()
         return cursor.rowcount > 0
 
 def get_total_net_worth() -> float:
-    """Calculates sum of all account current balances."""
     accounts = get_accounts()
     return sum(acc["current_balance"] for acc in accounts)
+
+def transfer_money(from_account_id: int, to_account_id: int, amount: float, date_str: str, description: str = "") -> bool:
+    """Transfers money from one account to another by creating matching expense and income transactions."""
+    if from_account_id == to_account_id or amount <= 0:
+        return False
+        
+    from_acc = get_account_by_id(from_account_id)
+    to_acc = get_account_by_id(to_account_id)
+    if not from_acc or not to_acc:
+        return False
+        
+    from_desc = f"انتقال به «{to_acc['name']}»" + (f" - {description}" if description else "")
+    to_desc = f"انتقال از «{from_acc['name']}»" + (f" - {description}" if description else "")
+    
+    # 1. Expense from source
+    add_transaction("expense", amount, None, date_str, from_desc, account_id=from_account_id)
+    # 2. Income to destination
+    add_transaction("income", amount, None, date_str, to_desc, account_id=to_account_id)
+    return True
 
 # --- Categories CRUD ---
 def get_categories(category_type: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -204,9 +258,22 @@ def add_category(name: str, cat_type: str, icon: str, color: str) -> int:
         conn.commit()
         return cursor.lastrowid
 
+def update_category(cat_id: int, name: str, cat_type: str, icon: str, color: str) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE categories 
+            SET name = ?, type = ?, icon = ?, color = ?
+            WHERE id = ?
+        """, (name, cat_type, icon, color, cat_id))
+        conn.commit()
+        return cursor.rowcount > 0
+
 def delete_category(cat_id: int) -> bool:
     with get_connection() as conn:
         cursor = conn.cursor()
+        # Set transactions referencing this category to NULL
+        cursor.execute("UPDATE transactions SET category_id = NULL WHERE category_id = ?", (cat_id,))
         cursor.execute("DELETE FROM categories WHERE id = ?", (cat_id,))
         conn.commit()
         return cursor.rowcount > 0
@@ -215,7 +282,7 @@ def delete_category(cat_id: int) -> bool:
 def add_transaction(
     t_type: str, 
     amount: float, 
-    category_id: int, 
+    category_id: Optional[int], 
     date_str: str, 
     description: str = "",
     account_id: Optional[int] = None
@@ -281,21 +348,18 @@ def get_monthly_summary(year: int, month: int) -> Dict[str, Any]:
     with get_connection() as conn:
         cursor = conn.cursor()
         
-        # Total income
         cursor.execute("""
             SELECT COALESCE(SUM(amount), 0) FROM transactions 
             WHERE year = ? AND month = ? AND type = 'income'
         """, (year, month))
         total_income = cursor.fetchone()[0]
         
-        # Total expense
         cursor.execute("""
             SELECT COALESCE(SUM(amount), 0) FROM transactions 
             WHERE year = ? AND month = ? AND type = 'expense'
         """, (year, month))
         total_expense = cursor.fetchone()[0]
         
-        # Category Breakdown
         cursor.execute("""
             SELECT c.name, c.icon, c.color, t.type, SUM(t.amount) as total_amount, COUNT(t.id) as count
             FROM transactions t
@@ -312,3 +376,128 @@ def get_monthly_summary(year: int, month: int) -> Dict[str, Any]:
             "balance": total_income - total_expense,
             "categories": categories_breakdown
         }
+
+# --- Loans & Installments (اقساط و وام‌ها) ---
+def get_loans() -> List[Dict[str, Any]]:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM loans ORDER BY id DESC")
+        return [dict(row) for row in cursor.fetchall()]
+
+def add_loan(
+    title: str,
+    total_amount: float,
+    monthly_amount: float,
+    total_installments: int,
+    paid_installments: int = 0,
+    due_day: int = 1,
+    next_due_date: str = "",
+    notes: str = ""
+) -> int:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO loans (title, total_amount, monthly_amount, total_installments, paid_installments, due_day, next_due_date, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (title, total_amount, monthly_amount, total_installments, paid_installments, due_day, next_due_date, notes.strip()))
+        conn.commit()
+        return cursor.lastrowid
+
+def pay_loan_installment(loan_id: int, account_id: Optional[int], date_str: str) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM loans WHERE id = ?", (loan_id,))
+        loan = cursor.fetchone()
+        if not loan:
+            return False
+            
+        new_paid = (loan["paid_installments"] or 0) + 1
+        if new_paid > loan["total_installments"]:
+            new_paid = loan["total_installments"]
+            
+        cursor.execute("UPDATE loans SET paid_installments = ? WHERE id = ?", (new_paid, loan_id))
+        conn.commit()
+        
+        # Add expense transaction
+        add_transaction(
+            t_type="expense",
+            amount=loan["monthly_amount"],
+            category_id=None,
+            date_str=date_str,
+            description=f"پرداخت قسط {new_paid} از {loan['total_installments']} وام «{loan['title']}»",
+            account_id=account_id
+        )
+        return True
+
+def delete_loan(loan_id: int) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM loans WHERE id = ?", (loan_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+# --- Debts & Receivables (طلب‌ها و بدهی‌ها) ---
+def get_debts(debt_type: Optional[str] = None, is_settled: Optional[int] = None) -> List[Dict[str, Any]]:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        query = "SELECT * FROM debts WHERE 1=1"
+        params = []
+        if debt_type:
+            query += " AND type = ?"
+            params.append(debt_type)
+        if is_settled is not None:
+            query += " AND is_settled = ?"
+            params.append(is_settled)
+        query += " ORDER BY is_settled ASC, id DESC"
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+def add_debt(debt_type: str, person_name: str, amount: float, due_date: str = "", notes: str = "") -> int:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO debts (type, person_name, amount, due_date, is_settled, notes)
+            VALUES (?, ?, ?, ?, 0, ?)
+        """, (debt_type, person_name.strip(), amount, due_date.strip(), notes.strip()))
+        conn.commit()
+        return cursor.lastrowid
+
+def settle_debt(debt_id: int, account_id: Optional[int], date_str: str) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM debts WHERE id = ?", (debt_id,))
+        debt = cursor.fetchone()
+        if not debt:
+            return False
+            
+        cursor.execute("UPDATE debts SET is_settled = 1 WHERE id = ?", (debt_id,))
+        conn.commit()
+        
+        # If receivable (طلب), money was received -> add income
+        # If payable (بدهی), money was paid -> add expense
+        if debt["type"] == "receivable":
+            add_transaction(
+                t_type="income",
+                amount=debt["amount"],
+                category_id=None,
+                date_str=date_str,
+                description=f"وصول طلب از «{debt['person_name']}»",
+                account_id=account_id
+            )
+        else:
+            add_transaction(
+                t_type="expense",
+                amount=debt["amount"],
+                category_id=None,
+                date_str=date_str,
+                description=f"تسویه بدهی به «{debt['person_name']}»",
+                account_id=account_id
+            )
+        return True
+
+def delete_debt(debt_id: int) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM debts WHERE id = ?", (debt_id,))
+        conn.commit()
+        return cursor.rowcount > 0

@@ -12,7 +12,7 @@ class AddTransactionView:
         self.page = page
         self.on_saved_callback = on_saved_callback
         
-        self.current_type = "expense" # Default: expense
+        self.current_type = "expense"
         self.selected_category_id = None
         self.selected_account_id = None
         self.current_date = get_current_jalali_str()
@@ -90,11 +90,11 @@ class AddTransactionView:
     def update_type_toggle_ui(self):
         is_expense = self.current_type == "expense"
         
-        self.expense_btn.bgcolor = "#EF4444" if is_expense else ft.Colors.with_opacity(0.1, ft.Colors.GREY)
+        self.expense_btn.bgcolor = "#E11D48" if is_expense else ft.Colors.with_opacity(0.08, ft.Colors.GREY)
         self.expense_btn_text.color = ft.Colors.WHITE if is_expense else ft.Colors.GREY_500
         self.expense_btn_icon.color = ft.Colors.WHITE if is_expense else ft.Colors.GREY_500
         
-        self.income_btn.bgcolor = "#10B981" if not is_expense else ft.Colors.with_opacity(0.1, ft.Colors.GREY)
+        self.income_btn.bgcolor = "#0284C7" if not is_expense else ft.Colors.with_opacity(0.08, ft.Colors.GREY)
         self.income_btn_text.color = ft.Colors.WHITE if not is_expense else ft.Colors.GREY_500
         self.income_btn_icon.color = ft.Colors.WHITE if not is_expense else ft.Colors.GREY_500
 
@@ -110,15 +110,15 @@ class AddTransactionView:
         for acc in accounts:
             is_selected = acc["id"] == self.selected_account_id
             acc_icon = get_icon(acc.get("icon") or "credit_card_rounded")
-            acc_color = acc.get("color") or "#3B82F6"
+            acc_color = acc.get("color") or "#1E3A8A"
             
             chips.append(
                 ft.Container(
                     on_click=lambda _, aid=acc["id"]: self.select_account(aid),
                     padding=ft.Padding.symmetric(horizontal=12, vertical=8),
                     border_radius=12,
-                    bgcolor=acc_color if is_selected else ft.Colors.with_opacity(0.12, acc_color),
-                    border=ft.Border.all(2, acc_color if is_selected else ft.Colors.TRANSPARENT),
+                    bgcolor=acc_color if is_selected else ft.Colors.with_opacity(0.15, acc_color),
+                    border=ft.Border.all(2, ft.Colors.WHITE if is_selected else ft.Colors.TRANSPARENT),
                     animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
                     content=ft.Row(
                         alignment=ft.MainAxisAlignment.CENTER,
@@ -126,7 +126,7 @@ class AddTransactionView:
                         controls=[
                             ft.Icon(
                                 acc_icon, 
-                                color=ft.Colors.WHITE if is_selected else acc_color, 
+                                color=ft.Colors.WHITE if is_selected else ft.Colors.WHITE_70, 
                                 size=16
                             ),
                             ft.Text(
@@ -169,7 +169,7 @@ class AddTransactionView:
                     padding=ft.Padding.symmetric(horizontal=12, vertical=8),
                     border_radius=12,
                     bgcolor=cat_color if is_selected else ft.Colors.with_opacity(0.12, cat_color),
-                    border=ft.Border.all(2, cat_color if is_selected else ft.Colors.TRANSPARENT),
+                    border=ft.Border.all(2, ft.Colors.WHITE if is_selected else ft.Colors.TRANSPARENT),
                     animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
                     content=ft.Row(
                         alignment=ft.MainAxisAlignment.CENTER,
@@ -229,7 +229,6 @@ class AddTransactionView:
             return
         self.date_input.error = None
         
-        # Save to DB
         database.add_transaction(
             t_type=self.current_type,
             amount=amount,
@@ -239,14 +238,13 @@ class AddTransactionView:
             description=self.desc_input.value or ""
         )
         
-        # Clear fields
         self.amount_input.value = ""
         self.amount_input.helper = ""
         self.desc_input.value = ""
         
         self.page.snack_bar = ft.SnackBar(
             content=ft.Text(
-                f"{'ورودی (درآمد)' if self.current_type == 'income' else 'خروجی (هزینه)'} با موفقیت ثبت و موجودی کارت به‌روز شد.",
+                f"{'ورودی (درآمد)' if self.current_type == 'income' else 'خروجی (هزینه)'} با موفقیت ثبت شد.",
                 rtl=True
             ),
             bgcolor=ft.Colors.GREEN_700
@@ -257,7 +255,6 @@ class AddTransactionView:
         self.on_saved_callback()
 
     def render(self):
-        # Type buttons
         self.expense_btn_icon = ft.Icon(ft.Icons.ARROW_UPWARD_ROUNDED, size=20, color=ft.Colors.WHITE)
         self.expense_btn_text = ft.Text("خروجی (هزینه)", weight=ft.FontWeight.BOLD, size=14, color=ft.Colors.WHITE, rtl=True)
         self.expense_btn = ft.Container(
@@ -265,7 +262,7 @@ class AddTransactionView:
             alignment=ft.Alignment.CENTER,
             padding=ft.Padding.symmetric(vertical=12),
             border_radius=12,
-            bgcolor="#EF4444",
+            bgcolor="#E11D48",
             on_click=lambda _: self.set_type("expense"),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.CENTER,
@@ -284,7 +281,7 @@ class AddTransactionView:
             alignment=ft.Alignment.CENTER,
             padding=ft.Padding.symmetric(vertical=12),
             border_radius=12,
-            bgcolor=ft.Colors.with_opacity(0.1, ft.Colors.GREY),
+            bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.GREY),
             on_click=lambda _: self.set_type("income"),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.CENTER,
@@ -299,14 +296,13 @@ class AddTransactionView:
         type_toggle = ft.Container(
             padding=4,
             border_radius=14,
-            bgcolor=ft.Colors.with_opacity(0.06, ft.Colors.PRIMARY),
+            bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.PRIMARY),
             content=ft.Row(
                 spacing=6,
                 controls=[self.expense_btn, self.income_btn],
             ),
         )
 
-        # Quick amount buttons
         quick_amounts = [
             ("۵۰ هزار", 50000),
             ("۱۰۰ هزار", 100000),
@@ -336,7 +332,6 @@ class AddTransactionView:
         self.update_categories_ui()
         self.update_type_toggle_ui()
 
-        # Submit button
         submit_btn = ft.ElevatedButton(
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.CENTER,

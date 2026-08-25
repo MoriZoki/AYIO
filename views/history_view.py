@@ -11,7 +11,7 @@ class HistoryView:
     def __init__(self, page: ft.Page, on_data_changed):
         self.page = page
         self.on_data_changed = on_data_changed
-        self.filter_type = "all" # 'all', 'income', 'expense'
+        self.filter_type = "all"
         self.search_query = ""
         self.container = ft.Container(expand=True)
 
@@ -58,16 +58,25 @@ class HistoryView:
     def build_transaction_tile(self, item: dict):
         is_income = item["type"] == "income"
         amount_sign = "+" if is_income else "-"
-        amount_color = ft.Colors.GREEN_400 if is_income else ft.Colors.RED_400
-        cat_color = item.get("category_color") or ("#10B981" if is_income else "#EF4444")
+        amount_color = ft.Colors.CYAN_300 if is_income else ft.Colors.RED_400
+        cat_color = item.get("category_color") or ("#0284C7" if is_income else "#EF4444")
         cat_icon = get_icon(item.get("category_icon"))
+        account_name = item.get("account_name")
+
+        subtitle_parts = [format_jalali_display(item["date"])]
+        if account_name:
+            subtitle_parts.append(account_name)
+        if item.get("description"):
+            subtitle_parts.append(item["description"])
+            
+        subtitle_text = " • ".join(subtitle_parts)
         
         return ft.Container(
             margin=ft.Margin.only(bottom=8),
             padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-            bgcolor=ft.Colors.with_opacity(0.04, ft.Colors.PRIMARY) if self.page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
+            bgcolor=ft.Colors.with_opacity(0.1, ft.Colors.SURFACE_TINT) if self.page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
             border_radius=14,
-            border=ft.Border.all(1, ft.Colors.with_opacity(0.08, ft.Colors.OUTLINE)),
+            border=ft.Border.all(1, ft.Colors.with_opacity(0.12, ft.Colors.OUTLINE)),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -94,9 +103,9 @@ class HistoryView:
                                         rtl=True,
                                     ),
                                     ft.Text(
-                                        format_jalali_display(item["date"]) + (f" • {item['description']}" if item.get("description") else ""),
+                                        subtitle_text,
                                         size=11,
-                                        color=ft.Colors.GREY_500,
+                                        color=ft.Colors.GREY_400,
                                         rtl=True,
                                         max_lines=1,
                                         overflow=ft.TextOverflow.ELLIPSIS,
@@ -136,20 +145,19 @@ class HistoryView:
         t_type = self.filter_type if self.filter_type != "all" else None
         all_transactions = database.get_transactions(t_type=t_type, limit=200)
 
-        # Apply search filter
         if self.search_query:
             filtered = []
             for t in all_transactions:
                 desc = (t.get("description") or "").lower()
                 cname = (t.get("category_name") or "").lower()
+                aname = (t.get("account_name") or "").lower()
                 date_str = (t.get("date") or "").lower()
-                if self.search_query in desc or self.search_query in cname or self.search_query in date_str:
+                if self.search_query in desc or self.search_query in cname or self.search_query in aname or self.search_query in date_str:
                     filtered.append(t)
             transactions = filtered
         else:
             transactions = all_transactions
 
-        # Filter Chips
         chips = [
             ft.Chip(
                 label=ft.Text("همه تراکنش‌ها", rtl=True),
@@ -159,20 +167,18 @@ class HistoryView:
             ft.Chip(
                 label=ft.Text("فقط ورودی‌ها (درآمد)", rtl=True),
                 selected=self.filter_type == "income",
-                selected_color=ft.Colors.GREEN_100,
                 on_select=lambda _: self.set_filter("income"),
             ),
             ft.Chip(
                 label=ft.Text("فقط خروجی‌ها (هزینه)", rtl=True),
                 selected=self.filter_type == "expense",
-                selected_color=ft.Colors.RED_100,
                 on_select=lambda _: self.set_filter("expense"),
             ),
         ]
 
         search_bar = ft.TextField(
             prefix_icon=ft.Icons.SEARCH_ROUNDED,
-            hint_text="جستجو در توضیحات یا دسته‌ها...",
+            hint_text="جستجو در توضیحات، دسته‌ها یا کارت‌ها...",
             border_radius=14,
             on_change=self.on_search_changed,
             rtl=True,
