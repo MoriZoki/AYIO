@@ -35,14 +35,14 @@ jobs:
         pip install -r requirements.txt
         pip install flet-cli
 
-    - name: Build Android APK
+    - name: Build Optimized Android APKs
       run: |
-        flet build apk --project ayio --product "AYIO" --org com.ayio.app --yes
+        flet build apk --project ayio --product "AYIO" --org com.ayio.app --split-per-abi --cleanup-app --cleanup-packages --yes
 
-    - name: Upload APK Artifact
+    - name: Upload APK Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: AYIO-Android-APK
+        name: AYIO-Optimized-APKs
         path: |
           build/apk/*.apk
           build/**/*.apk
